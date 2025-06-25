@@ -328,6 +328,13 @@ async def main():
                 
         elif args.command == "getScenes":
             result = await controller.get_scenes()
+            
+        elif args.command == "clearCache":
+            controller._clear_cache()
+            # Reset the controller state
+            controller.bulb_ip = None
+            controller.light = None
+            result = {"success": True, "message": "Cache cleared successfully"}
                 
         else:
             result = {"success": False, "message": f"Unknown command: {args.command}"}

@@ -116,6 +116,7 @@ PlasmoidItem {
     property bool wizDiscovering: wizBridge.isDiscovering
     property bool wizInitialDiscoveryComplete: false
     property var wizScenes: wizBridge.availableScenes
+    property bool bulbPowerState: true // Default to ON state
 
     // RGB Color properties
     property int redValue: 255
@@ -236,7 +237,7 @@ PlasmoidItem {
     }
 
     Plasmoid.icon: {
-        let iconName = "brightness-high";
+        let iconName = "im-jabber";
 
         if (inPanel) {
             return symbolicizeIconName(iconName);
@@ -310,7 +311,8 @@ PlasmoidItem {
 
                 spacing: Kirigami.Units.smallSpacing * 2
 
-                // Include all the existing content from PopupDialog here...
+                
+                
                 // Warm White Controls (moved to top)
                 WarmWhiteItem {
                     id: warmWhiteItem
@@ -351,6 +353,47 @@ PlasmoidItem {
                     width: scrollView.availableWidth
                     enabled: appletInterface.wizConnected
                     availableScenes: appletInterface.wizScenes
+                }
+
+                // Include all the existing content from PopupDialog here...
+                // Restart Button
+                PlasmaComponents3.Button {
+                    id: restartButton
+                    width: scrollView.availableWidth
+                    text: i18n("🔄 Restart WiZ Control")
+                    icon.name: "view-refresh"
+                    
+                    onClicked: {
+                        console.log("[WizControl] Restart button clicked");
+                        
+                        // Reset all states
+                        appletInterface.wizConnected = false;
+                        appletInterface.wizScenes = [];
+                        
+                        // Clear the cache
+                        wizBridge.clearCache();
+                        
+                        // Restart discovery
+                        wizBridge.discoverBulbs();
+                        
+                        // Visual feedback
+                        text = i18n("🔄 Restarting...");
+                        enabled = false;
+                        
+                        // Re-enable after 2 seconds
+                        restartTimer.start();
+                    }
+                    
+                    // Timer to re-enable button after restart
+                    Timer {
+                        id: restartTimer
+                        interval: 2000
+                        repeat: false
+                        onTriggered: {
+                            restartButton.text = i18n("🔄 Restart WiZ Control");
+                            restartButton.enabled = true;
+                        }
+                    }
                 }
             }
         }

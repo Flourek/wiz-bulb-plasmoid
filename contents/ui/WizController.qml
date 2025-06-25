@@ -439,4 +439,19 @@ Item {
             }
         }, "getScenes");
     }
+
+    // Clear cache and reset connection
+    function clearCache() {
+        console.log("[WizControl] Clearing cache and resetting connection...");
+        
+        executeCommand("clearCache", [], function(exitCode, stdout, stderr) {
+            if (exitCode === 0) {
+                console.log("[WizControl] Cache cleared successfully");
+                operationCompleted("clearCache", true, null);
+            } else {
+                console.log("[WizControl] Cache clear failed:", stderr);
+                operationCompleted("clearCache", false, null);
+            }
+        }, "clearCache");
+    }
 }

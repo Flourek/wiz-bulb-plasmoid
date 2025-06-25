@@ -153,25 +153,45 @@ ColumnLayout {
             }
         }
         
-        PlasmaComponents3.Button {
-            text: "NEUTRAL"
+        // Row layout for COOL button and ON/OFF button
+        RowLayout {
             Layout.fillWidth: true
-            enabled: warmWhiteItem.enabled
-            font.family: "monospace"
-            onClicked: {
-                warmTempSlider.value = 4000;
-                wizBridge.setWarmWhite(Math.round(warmBrightnessSlider.value), 4000);
+            spacing: Kirigami.Units.smallSpacing
+            
+            PlasmaComponents3.Button {
+                text: "COOL"
+                Layout.fillWidth: true
+                enabled: warmWhiteItem.enabled
+                font.family: "monospace"
+                onClicked: {
+                    warmTempSlider.value = 6500;
+                    wizBridge.setWarmWhite(Math.round(warmBrightnessSlider.value), 6500);
+                }
             }
-        }
-        
-        PlasmaComponents3.Button {
-            text: "COOL"
-            Layout.fillWidth: true
-            enabled: warmWhiteItem.enabled
-            font.family: "monospace"
-            onClicked: {
-                warmTempSlider.value = 6500;
-                wizBridge.setWarmWhite(Math.round(warmBrightnessSlider.value), 6500);
+            
+            PlasmaComponents3.Button {
+                id: powerButton
+                text: appletInterface.wizConnected && appletInterface.bulbPowerState ? "OFF" : "ON"
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 3
+                enabled: warmWhiteItem.enabled
+                font.family: "monospace"
+                font.bold: true
+                
+                // Color coding: green for ON, red for OFF
+                background: Rectangle {
+                    color: powerButton.pressed ? 
+                           (appletInterface.wizConnected && appletInterface.bulbPowerState ? "#AA4444" : "#44AA44") :
+                           (appletInterface.wizConnected && appletInterface.bulbPowerState ? "#CC5555" : "#55CC55")
+                    border.color: "#888888"
+                    border.width: 1
+                    radius: 4
+                }
+                
+                onClicked: {
+                    var newState = !(appletInterface.wizConnected && appletInterface.bulbPowerState);
+                    wizBridge.setBulbPower(newState);
+                    appletInterface.bulbPowerState = newState;
+                }
             }
         }
     }
