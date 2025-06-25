@@ -220,6 +220,29 @@ PlasmaExtras.Representation {
                 }
             }
 
+            // Warm White Controls
+            WarmWhiteItem {
+                id: warmWhiteItem
+                width: scrollView.availableWidth
+                enabled: appletInterface.wizConnected
+
+                KeyNavigation.up: rgbColorItem
+                KeyNavigation.down: sceneItem
+                KeyNavigation.backtab: KeyNavigation.up
+                KeyNavigation.tab: KeyNavigation.down
+            }
+
+            // Scene Controls
+            SceneItem {
+                id: sceneItem
+                width: scrollView.availableWidth
+                enabled: appletInterface.wizConnected
+                availableScenes: appletInterface.wizScenes
+
+                KeyNavigation.up: warmWhiteItem
+                KeyNavigation.backtab: KeyNavigation.up
+            }
+
         }
     }
 }

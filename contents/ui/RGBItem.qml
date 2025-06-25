@@ -38,6 +38,7 @@ PlasmaComponents3.ItemDelegate {
             text: i18n("RGB Color Control")
             textFormat: Text.PlainText
             font.bold: true
+            font.family: "monospace"
             Accessible.ignored: true
         }
 
@@ -46,10 +47,13 @@ PlasmaComponents3.ItemDelegate {
             Layout.fillWidth: true
             spacing: Kirigami.Units.gridUnit
 
-            Kirigami.Icon {
-                Layout.preferredWidth: Kirigami.Units.iconSizes.medium
-                Layout.preferredHeight: Kirigami.Units.iconSizes.medium
-                source: "color-picker-red"
+            PlasmaComponents3.Label {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 2
+                text: "R:"
+                textFormat: Text.PlainText
+                color: "#FF4444"
+                font.family: "monospace"
+                font.bold: true
             }
 
             ColumnLayout {
@@ -62,14 +66,17 @@ PlasmaComponents3.ItemDelegate {
 
                     PlasmaComponents3.Label {
                         Layout.fillWidth: true
-                        text: i18n("Red")
+                        text: i18n("Red Channel")
                         textFormat: Text.PlainText
-                        color: "#FF0000"
+                        color: "#FF4444"
+                        font.family: "monospace"
                     }
 
                     PlasmaComponents3.Label {
-                        text: redValue
+                        text: "0x" + redValue.toString(16).padStart(2, '0').toUpperCase()
                         textFormat: Text.PlainText
+                        font.family: "monospace"
+                        color: "#FF4444"
                     }
                 }
 
@@ -80,6 +87,34 @@ PlasmaComponents3.ItemDelegate {
                     to: 255
                     stepSize: 1
                     value: root.redValue
+
+                    handle: Rectangle {
+                        x: redControl.leftPadding + redControl.visualPosition * (redControl.availableWidth - width)
+                        y: redControl.topPadding + redControl.availableHeight / 2 - height / 2
+                        implicitWidth: 20
+                        implicitHeight: 20
+                        radius: 10
+                        color: "#FF4444"
+                        border.color: "#FFFFFF"
+                        border.width: 2
+                    }
+
+                    background: Rectangle {
+                        x: redControl.leftPadding
+                        y: redControl.topPadding + redControl.availableHeight / 2 - height / 2
+                        implicitWidth: 200
+                        implicitHeight: 6
+                        width: redControl.availableWidth
+                        height: implicitHeight
+                        radius: 3
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "#000000" }
+                            GradientStop { position: 1.0; color: "#FF0000" }
+                        }
+                        border.color: "#444444"
+                        border.width: 1
+                    }
 
                     onMoved: {
                         root.redValue = value;
@@ -94,10 +129,13 @@ PlasmaComponents3.ItemDelegate {
             Layout.fillWidth: true
             spacing: Kirigami.Units.gridUnit
 
-            Kirigami.Icon {
-                Layout.preferredWidth: Kirigami.Units.iconSizes.medium
-                Layout.preferredHeight: Kirigami.Units.iconSizes.medium
-                source: "color-picker-green"
+            PlasmaComponents3.Label {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 2
+                text: "G:"
+                textFormat: Text.PlainText
+                color: "#44FF44"
+                font.family: "monospace"
+                font.bold: true
             }
 
             ColumnLayout {
@@ -110,14 +148,17 @@ PlasmaComponents3.ItemDelegate {
 
                     PlasmaComponents3.Label {
                         Layout.fillWidth: true
-                        text: i18n("Green")
+                        text: i18n("Green Channel")
                         textFormat: Text.PlainText
-                        color: "#00FF00"
+                        color: "#44FF44"
+                        font.family: "monospace"
                     }
 
                     PlasmaComponents3.Label {
-                        text: greenValue
+                        text: "0x" + greenValue.toString(16).padStart(2, '0').toUpperCase()
                         textFormat: Text.PlainText
+                        font.family: "monospace"
+                        color: "#44FF44"
                     }
                 }
 
@@ -128,6 +169,34 @@ PlasmaComponents3.ItemDelegate {
                     to: 255
                     stepSize: 1
                     value: root.greenValue
+
+                    handle: Rectangle {
+                        x: greenControl.leftPadding + greenControl.visualPosition * (greenControl.availableWidth - width)
+                        y: greenControl.topPadding + greenControl.availableHeight / 2 - height / 2
+                        implicitWidth: 20
+                        implicitHeight: 20
+                        radius: 10
+                        color: "#44FF44"
+                        border.color: "#FFFFFF"
+                        border.width: 2
+                    }
+
+                    background: Rectangle {
+                        x: greenControl.leftPadding
+                        y: greenControl.topPadding + greenControl.availableHeight / 2 - height / 2
+                        implicitWidth: 200
+                        implicitHeight: 6
+                        width: greenControl.availableWidth
+                        height: implicitHeight
+                        radius: 3
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "#000000" }
+                            GradientStop { position: 1.0; color: "#00FF00" }
+                        }
+                        border.color: "#444444"
+                        border.width: 1
+                    }
 
                     onMoved: {
                         root.greenValue = value;
@@ -142,10 +211,13 @@ PlasmaComponents3.ItemDelegate {
             Layout.fillWidth: true
             spacing: Kirigami.Units.gridUnit
 
-            Kirigami.Icon {
-                Layout.preferredWidth: Kirigami.Units.iconSizes.medium
-                Layout.preferredHeight: Kirigami.Units.iconSizes.medium
-                source: "color-picker-blue"
+            PlasmaComponents3.Label {
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 2
+                text: "B:"
+                textFormat: Text.PlainText
+                color: "#4444FF"
+                font.family: "monospace"
+                font.bold: true
             }
 
             ColumnLayout {
@@ -158,14 +230,17 @@ PlasmaComponents3.ItemDelegate {
 
                     PlasmaComponents3.Label {
                         Layout.fillWidth: true
-                        text: i18n("Blue")
+                        text: i18n("Blue Channel")
                         textFormat: Text.PlainText
-                        color: "#0000FF"
+                        color: "#4444FF"
+                        font.family: "monospace"
                     }
 
                     PlasmaComponents3.Label {
-                        text: blueValue
+                        text: "0x" + blueValue.toString(16).padStart(2, '0').toUpperCase()
                         textFormat: Text.PlainText
+                        font.family: "monospace"
+                        color: "#4444FF"
                     }
                 }
 
@@ -176,6 +251,34 @@ PlasmaComponents3.ItemDelegate {
                     to: 255
                     stepSize: 1
                     value: root.blueValue
+
+                    handle: Rectangle {
+                        x: blueControl.leftPadding + blueControl.visualPosition * (blueControl.availableWidth - width)
+                        y: blueControl.topPadding + blueControl.availableHeight / 2 - height / 2
+                        implicitWidth: 20
+                        implicitHeight: 20
+                        radius: 10
+                        color: "#4444FF"
+                        border.color: "#FFFFFF"
+                        border.width: 2
+                    }
+
+                    background: Rectangle {
+                        x: blueControl.leftPadding
+                        y: blueControl.topPadding + blueControl.availableHeight / 2 - height / 2
+                        implicitWidth: 200
+                        implicitHeight: 6
+                        width: blueControl.availableWidth
+                        height: implicitHeight
+                        radius: 3
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: "#000000" }
+                            GradientStop { position: 1.0; color: "#0000FF" }
+                        }
+                        border.color: "#444444"
+                        border.width: 1
+                    }
 
                     onMoved: {
                         root.blueValue = value;
@@ -190,14 +293,16 @@ PlasmaComponents3.ItemDelegate {
             Layout.fillWidth: true
             Layout.preferredHeight: Kirigami.Units.gridUnit * 2
             color: Qt.rgba(redValue/255, greenValue/255, blueValue/255, 1.0)
-            border.width: 1
-            border.color: Kirigami.Theme.textColor
-            radius: 4
+            border.width: 2
+            border.color: "#444444"
+            radius: 2
 
             PlasmaComponents3.Label {
                 anchors.centerIn: parent
-                text: i18n("Color Preview")
+                text: "RGB(" + redValue + "," + greenValue + "," + blueValue + ")"
                 color: (redValue + greenValue + blueValue > 384) ? "#000000" : "#FFFFFF"
+                font.family: "monospace"
+                font.bold: true
             }
         }
     }

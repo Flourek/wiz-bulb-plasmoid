@@ -19,6 +19,7 @@ Item {
     // Throttling timers to prevent spam
     property var lastBrightnessValue: -1
     property var lastRGBValues: [-1, -1, -1]
+    property var lastWarmWhiteValues: [-1, -1] // brightness, temperature
     
     Timer {
         id: brightnessThrottleTimer
@@ -40,6 +41,18 @@ Item {
             if (lastRGBValues[0] >= 0) {
                 _setRGBColorNow(lastRGBValues[0], lastRGBValues[1], lastRGBValues[2])
                 lastRGBValues = [-1, -1, -1]
+            }
+        }
+    }
+    
+    Timer {
+        id: warmWhiteThrottleTimer
+        interval: 100  // 100ms throttle
+        repeat: false
+        onTriggered: {
+            if (lastWarmWhiteValues[0] >= 0) {
+                _setWarmWhiteNow(lastWarmWhiteValues[0], lastWarmWhiteValues[1])
+                lastWarmWhiteValues = [-1, -1]
             }
         }
     }
@@ -305,5 +318,125 @@ Item {
                 operationCompleted("setColorTemp", false, null);
             }
         }, "setColorTemp");
+    }
+
+    // Set warm white (brightness 10-100, temp 2200-6500K) - throttled
+    function setWarmWhite(brightness, temperature) {
+        if (!isConnected) {
+            errorOccurred("No bulb connected");
+            return;
+        }
+
+        brightness = Math.max(10, Math.min(100, brightness));
+        temperature = Math.max(2200, Math.min(6500, temperature));
+
+        // Store the latest values and restart the timer
+        lastWarmWhiteValues = [brightness, temperature];
+        warmWhiteThrottleTimer.restart();
+    }
+    
+    // Internal function that actually sends the warm white command
+    function _setWarmWhiteNow(brightness, temperature) {
+        console.log("[WizControl] Setting warm white to:", brightness, "brightness,", temperature, "K");
+        
+        executeCommand("setWarmWhite", [brightness.toString(), temperature.toString()], function(exitCode, stdout, stderr) {
+            if (exitCode === 0 && stdout) {
+                try {
+                    const result = JSON.parse(stdout.trim());
+                    operationCompleted("setWarmWhite", result.success, result);
+                    if (!result.success) {
+                        errorOccurred(result.message || "Failed to set warm white");
+                    }
+                } catch (e) {
+                    errorOccurred("Failed to parse warm white result: " + e.message);
+                    operationCompleted("setWarmWhite", false, null);
+                }
+            } else {
+                errorOccurred("Set warm white process failed: " + (stderr || "Unknown error"));
+                operationCompleted("setWarmWhite", false, null);
+            }
+        }, "setWarmWhite");
+    }
+
+    // Set scene by ID
+    function setScene(sceneId) {
+        if (!isConnected) {
+            errorOccurred("No bulb connected");
+            return;
+        }
+
+        console.log("[WizControl] Setting scene to:", sceneId);
+        
+        executeCommand("setScene", [sceneId.toString()], function(exitCode, stdout, stderr) {
+            if (exitCode === 0 && stdout) {
+                try {
+                    const result = JSON.parse(stdout.trim());
+                    operationCompleted("setScene", result.success, result);
+                    if (!result.success) {
+                        errorOccurred(result.message || "Failed to set scene");
+                    }
+                } catch (e) {
+                    errorOccurred("Failed to parse scene result: " + e.message);
+                    operationCompleted("setScene", false, null);
+                }
+            } else {
+                errorOccurred("Set scene process failed: " + (stderr || "Unknown error"));
+                operationCompleted("setScene", false, null);
+            }
+        }, "setScene");
+    }
+
+    // Set scene with speed (1-20, higher = faster transitions)
+    function setSceneWithSpeed(sceneId, speed) {
+        if (!isConnected) {
+            errorOccurred("No bulb connected");
+            return;
+        }
+
+        console.log("[WizControl] Setting scene", sceneId, "with speed", speed);
+        
+        executeCommand("setSceneWithSpeed", [sceneId.toString(), speed.toString()], function(exitCode, stdout, stderr) {
+            if (exitCode === 0 && stdout) {
+                try {
+                    const result = JSON.parse(stdout.trim());
+                    operationCompleted("setSceneWithSpeed", result.success, result);
+                    if (!result.success) {
+                        errorOccurred(result.message || "Failed to set scene with speed");
+                    }
+                } catch (e) {
+                    errorOccurred("Failed to parse scene speed result: " + e.message);
+                    operationCompleted("setSceneWithSpeed", false, null);
+                }
+            } else {
+                errorOccurred("Set scene speed process failed: " + (stderr || "Unknown error"));
+                operationCompleted("setSceneWithSpeed", false, null);
+            }
+        }, "setSceneWithSpeed");
+    }
+
+    // Get available scenes
+    function getAvailableScenes() {
+        console.log("[WizControl] Getting available scenes...");
+        
+        executeCommand("getScenes", [], function(exitCode, stdout, stderr) {
+            if (exitCode === 0 && stdout) {
+                try {
+                    const result = JSON.parse(stdout.trim());
+                    if (result.success) {
+                        availableScenes = result.scenes;
+                        operationCompleted("getScenes", true, result);
+                    } else {
+                        errorOccurred(result.message || "Failed to get scenes");
+                        operationCompleted("getScenes", false, result);
+                    }
+                } catch (e) {
+                    errorOccurred("Failed to parse scenes result: " + e.message);
+                    operationCompleted("getScenes", false, null);
+                }
+            } else {
+                errorOccurred("Get scenes process failed: " + (stderr || "Unknown error"));
+                operationCompleted("getScenes", false, null);
+            }
+        }, "getScenes");
     }
 }

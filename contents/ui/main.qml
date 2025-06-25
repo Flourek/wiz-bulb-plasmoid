@@ -17,6 +17,8 @@ import org.kde.config // KAuthorized
 import org.kde.notification
 import org.kde.plasma.core as PlasmaCore
 import org.kde.plasma.plasmoid
+import org.kde.plasma.extras as PlasmaExtras
+import org.kde.plasma.components as PlasmaComponents3
 import org.kde.kirigami as Kirigami
 import org.kde.kitemmodels as KItemModels
 import org.kde.plasma.plasma5support as Plasma5Support
@@ -273,7 +275,7 @@ PlasmoidItem {
         }
     }
 
-    fullRepresentation: PopupDialog {
+    fullRepresentation: PlasmaExtras.Representation {
         id: dialogItem
 
         readonly property var appletInterface: brightnessAndColorControl
@@ -282,6 +284,76 @@ PlasmoidItem {
         Layout.minimumWidth: Kirigami.Units.gridUnit * 10
         Layout.maximumWidth: Kirigami.Units.gridUnit * 80
         Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+
+        readonly property Item firstItemAfterScreenBrightnessRepeater: keyboardBrightnessSlider.visible ? keyboardBrightnessSlider : (wizBrightnessSlider.visible ? wizBrightnessSlider : rgbColorItem)
+        KeyNavigation.down: screenBrightnessRepeater.firstSlider ?? firstItemAfterScreenBrightnessRepeater
+
+        contentItem: PlasmaComponents3.ScrollView {
+            id: scrollView
+
+            focus: false
+
+            function positionViewAtItem(item) {
+                if (!PlasmaComponents3.ScrollBar.vertical.visible) {
+                    return;
+                }
+                const rect = brightnessList.mapFromItem(item, 0, 0, item.width, item.height);
+                if (rect.y < scrollView.contentItem.contentY) {
+                    scrollView.contentItem.contentY = rect.y;
+                } else if (rect.y + rect.height > scrollView.contentItem.contentY + scrollView.height) {
+                    scrollView.contentItem.contentY = rect.y + rect.height - scrollView.height;
+                }
+            }
+
+            Column {
+                id: brightnessList
+
+                spacing: Kirigami.Units.smallSpacing * 2
+
+                // Include all the existing content from PopupDialog here...
+                // Warm White Controls (moved to top)
+                WarmWhiteItem {
+                    id: warmWhiteItem
+                    width: scrollView.availableWidth
+                    enabled: appletInterface.wizConnected
+                }
+
+                // RGB Controls
+                RGBItem {
+                    id: rgbColorItem
+                    width: scrollView.availableWidth
+
+                    redValue: appletInterface.redValue
+                    greenValue: appletInterface.greenValue
+                    blueValue: appletInterface.blueValue
+
+                    onColorChanged: (channel, value) => {
+                        if (channel === "red") {
+                            appletInterface.redValue = value;
+                        } else if (channel === "green") {
+                            appletInterface.greenValue = value;
+                        } else if (channel === "blue") {
+                            appletInterface.blueValue = value;
+                        }
+                        appletInterface.notifyValueChange(channel, value);
+                    }
+
+                    Component.onCompleted: {
+                        if (parent && parent.parent && parent.parent.rgbColorItem !== undefined) {
+                            parent.parent.rgbColorItem = rgbColorItem;
+                        }
+                    }
+                }
+
+                // Scene Controls (moved to bottom)
+                SceneItem {
+                    id: sceneItem
+                    width: scrollView.availableWidth
+                    enabled: appletInterface.wizConnected
+                    availableScenes: appletInterface.wizScenes
+                }
+            }
+        }
 
         Layout.minimumHeight: Kirigami.Units.gridUnit * 10
         Layout.maximumHeight: Kirigami.Units.gridUnit * 40

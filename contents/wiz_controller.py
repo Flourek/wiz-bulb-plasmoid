@@ -1,174 +1,34 @@
 #!/usr/bin/env python3
 """
-Simple WiZ Bulb Controller
-Direct UDP communication without external dependencies
+WiZ Bulb Controller using pywizlight
+Supports RGB, brightness, warm light, and scenes
 """
 
-import socket
+import asyncio
 import json
 import sys
-import time
 import argparse
 import os
 import tempfile
+import time
+
+# Add local lib directory to path for bundled pywizlight
+lib_path = os.path.join(os.path.dirname(__file__), 'lib')
+sys.path.insert(0, lib_path)
+
+try:
+    from pywizlight import wizlight, PilotBuilder, discovery
+except ImportError:
+    print(json.dumps({"success": False, "message": "pywizlight not available in local lib directory"}))
+    sys.exit(1)
 
 class WizController:
     def __init__(self):
         self.bulb_ip = None
-        self.bulb_port = 38899
+        self.light = None
         self.cache_file = os.path.join(tempfile.gettempdir(), "wiz_bulb_cache.json")
         self._load_cached_bulb()
         
-    def discover_bulbs(self):
-        """Discover WiZ bulbs on the network"""
-        discovery_message = {
-            "method": "registration",
-            "params": {
-                "phoneMac": "AAAAAAAAAAAA",
-                "register": False,
-                "phoneIp": "1.2.3.4",
-                "id": 1
-            }
-        }
-        
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.settimeout(8.0)
-        
-        message = json.dumps(discovery_message).encode()
-        bulbs = []
-        
-        # Try different broadcast addresses
-        broadcast_addresses = ["192.168.0.255", "192.168.1.255", "255.255.255.255"]
-        
-        try:
-            for addr in broadcast_addresses:
-                try:
-                    sock.sendto(message, (addr, 38899))
-                except Exception as e:
-                    continue
-            
-            # Listen for responses
-            start_time = time.time()
-            while time.time() - start_time < 8.0:
-                try:
-                    data, addr = sock.recvfrom(1024)
-                    response = json.loads(data.decode())
-                    
-                    if response.get("method") == "registration" and response.get("result", {}).get("mac"):
-                        bulb = {
-                            "ip": addr[0],
-                            "port": addr[1],
-                            "mac": response["result"]["mac"]
-                        }
-                        
-                        # Check if already found this bulb
-                        if not any(b["mac"] == bulb["mac"] for b in bulbs):
-                            bulbs.append(bulb)
-                            
-                except socket.timeout:
-                    break
-                except Exception:
-                    continue
-                    
-        finally:
-            sock.close()
-            
-        if bulbs:
-            self.bulb_ip = bulbs[0]["ip"]
-            self.bulb_port = bulbs[0]["port"] 
-            # Cache the discovered bulb
-            self._save_cached_bulb(self.bulb_ip, self.bulb_port)
-            return {"success": True, "bulbs": bulbs}
-        else:
-            return {"success": False, "message": "No bulbs found"}
-    
-    def send_command(self, command):
-        """Send a command to the bulb"""
-        if not self.bulb_ip:
-            # Try to discover if not connected
-            discover_result = self.discover_bulbs()
-            if not discover_result["success"]:
-                return {"success": False, "message": "No bulb found"}
-        
-        # Try to send command with current IP
-        result = self._send_command_direct(command)
-        
-        # If command failed, try rediscovering once
-        if not result["success"] and "timeout" in result["message"].lower():
-            self._clear_cache()
-            discover_result = self.discover_bulbs()
-            if discover_result["success"]:
-                result = self._send_command_direct(command)
-        
-        return result
-    
-    def _send_command_direct(self, command):
-        """Send command directly to bulb without discovery fallback"""
-        if not self.bulb_ip:
-            return {"success": False, "message": "No bulb IP available"}
-            
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.settimeout(5.0)
-        
-        try:
-            message = json.dumps(command).encode()
-            sock.sendto(message, (self.bulb_ip, self.bulb_port))
-            
-            data, addr = sock.recvfrom(1024)
-            response = json.loads(data.decode())
-            return {"success": True, "response": response}
-            
-        except Exception as e:
-            return {"success": False, "message": str(e)}
-        finally:
-            sock.close()
-    
-    def get_state(self):
-        """Get current bulb state"""
-        result = self.send_command({"method": "getPilot", "params": {}})
-        if result["success"] and "result" in result["response"]:
-            return {"success": True, "state": result["response"]["result"]}
-        return result
-    
-    def set_brightness(self, brightness):
-        """Set bulb brightness (10-100)"""
-        brightness = max(10, min(100, int(brightness)))
-        result = self.send_command({
-            "method": "setPilot",
-            "params": {"dimming": brightness}
-        })
-        return result
-    
-    def set_rgb(self, red, green, blue):
-        """Set RGB color (0-255 each)"""
-        red = max(0, min(255, int(red)))
-        green = max(0, min(255, int(green)))
-        blue = max(0, min(255, int(blue)))
-        
-        result = self.send_command({
-            "method": "setPilot",
-            "params": {"r": red, "g": green, "b": blue}
-        })
-        return result
-    
-    def set_power(self, on):
-        """Set bulb power on/off"""
-        result = self.send_command({
-            "method": "setPilot",
-            "params": {"state": bool(on)}
-        })
-        return result
-    
-    def set_temperature(self, temp):
-        """Set color temperature (2200-6500K)"""
-        temp = max(2200, min(6500, int(temp)))
-        result = self.send_command({
-            "method": "setPilot",
-            "params": {"temp": temp}
-        })
-        return result
-    
     def _load_cached_bulb(self):
         """Load cached bulb IP from file"""
         try:
@@ -179,22 +39,16 @@ class WizController:
                     cache_time = cache_data.get('timestamp', 0)
                     if time.time() - cache_time < 3600:  # 1 hour
                         self.bulb_ip = cache_data.get('ip')
-                        self.bulb_port = cache_data.get('port', 38899)
-                        # Quick ping test to see if bulb is still reachable
-                        if self._test_bulb_connection():
-                            return
-                        else:
-                            # Bulb not reachable, clear cache
-                            self._clear_cache()
+                        if self.bulb_ip:
+                            self.light = wizlight(self.bulb_ip)
         except Exception:
             pass  # Ignore cache errors, will discover fresh
     
-    def _save_cached_bulb(self, ip, port=38899):
+    def _save_cached_bulb(self, ip):
         """Save bulb IP to cache file"""
         try:
             cache_data = {
                 'ip': ip,
-                'port': port,
                 'timestamp': time.time()
             }
             with open(self.cache_file, 'w') as f:
@@ -209,29 +63,200 @@ class WizController:
                 os.remove(self.cache_file)
         except Exception:
             pass
-    
-    def _test_bulb_connection(self):
-        """Quick test to see if cached bulb is still reachable"""
-        if not self.bulb_ip:
-            return False
-        
+
+    async def discover_bulbs(self):
+        """Discover WiZ bulbs on the network"""
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.settimeout(2.0)  # Short timeout for quick test
+            bulbs = await discovery.discover_lights(broadcast_space="192.168.0.255")
             
-            test_command = {"method": "getPilot", "params": {}}
-            message = json.dumps(test_command).encode()
-            sock.sendto(message, (self.bulb_ip, self.bulb_port))
+            if not bulbs:
+                # Try other broadcast addresses
+                for addr in ["192.168.1.255", "255.255.255.255"]:
+                    bulbs = await discovery.discover_lights(broadcast_space=addr)
+                    if bulbs:
+                        break
             
-            data, addr = sock.recvfrom(1024)
-            response = json.loads(data.decode())
-            sock.close()
+            if bulbs:
+                bulb_list = []
+                for bulb in bulbs:
+                    bulb_list.append({
+                        "ip": bulb.ip,
+                        "mac": bulb.mac,
+                        "port": 38899
+                    })
+                
+                # Use first bulb and cache it
+                self.bulb_ip = bulbs[0].ip
+                self.light = wizlight(self.bulb_ip)
+                self._save_cached_bulb(self.bulb_ip)
+                
+                return {"success": True, "bulbs": bulb_list}
+            else:
+                return {"success": False, "message": "No bulbs found"}
+                
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def ensure_connected(self):
+        """Ensure we have a connection to a bulb"""
+        if not self.light:
+            result = await self.discover_bulbs()
+            if not result["success"]:
+                return False
+        return True
+
+    async def get_state(self):
+        """Get current bulb state"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
             
-            return response.get("result") is not None
-        except Exception:
-            return False
-        
-def main():
+            state = await self.light.updateState()
+            return {
+                "success": True, 
+                "state": {
+                    "state": state.get_state(),
+                    "brightness": state.get_brightness(),
+                    "rgb": state.get_rgb(),
+                    "colortemp": state.get_colortemp(),
+                    "scene": state.get_scene()
+                }
+            }
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_brightness(self, brightness):
+        """Set bulb brightness (10-100)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            brightness = max(10, min(100, int(brightness)))
+            await self.light.turn_on(PilotBuilder(brightness=brightness))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_rgb(self, red, green, blue):
+        """Set RGB color (0-255 each)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            red = max(0, min(255, int(red)))
+            green = max(0, min(255, int(green)))
+            blue = max(0, min(255, int(blue)))
+            
+            await self.light.turn_on(PilotBuilder(rgb=(red, green, blue)))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_warm_white(self, brightness, temp):
+        """Set warm white with brightness (10-100) and temperature (2200-6500K)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            brightness = max(10, min(100, int(brightness)))
+            temp = max(2200, min(6500, int(temp)))
+            
+            await self.light.turn_on(PilotBuilder(brightness=brightness, colortemp=temp))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_color_temp(self, temp):
+        """Set color temperature (2200-6500K)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            temp = max(2200, min(6500, int(temp)))
+            await self.light.turn_on(PilotBuilder(colortemp=temp))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_scene(self, scene_id):
+        """Set scene (1-32)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            scene_id = max(1, min(32, int(scene_id)))
+            await self.light.turn_on(PilotBuilder(scene=scene_id))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_scene_with_speed(self, scene_id, speed):
+        """Set scene with speed (1-20, higher = faster)"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            scene_id = max(1, min(32, int(scene_id)))
+            speed = max(1, min(20, int(speed)))
+            
+            await self.light.turn_on(PilotBuilder(scene=scene_id, speed=speed))
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def set_power(self, on):
+        """Set bulb power on/off"""
+        try:
+            if not await self.ensure_connected():
+                return {"success": False, "message": "No bulb found"}
+            
+            if on:
+                await self.light.turn_on(PilotBuilder())
+            else:
+                await self.light.turn_off()
+            return {"success": True, "response": {"result": {"success": True}}}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    async def get_scenes(self):
+        """Get available scene list"""
+        scenes = [
+            {"id": 1, "name": "Ocean"},
+            {"id": 2, "name": "Romance"}, 
+            {"id": 3, "name": "Sunset"},
+            {"id": 4, "name": "Party"},
+            {"id": 5, "name": "Fireplace"},
+            {"id": 6, "name": "Cozy"},
+            {"id": 7, "name": "Forest"},
+            {"id": 8, "name": "Pastel Colors"},
+            {"id": 9, "name": "Wake up"},
+            {"id": 10, "name": "Bedtime"},
+            {"id": 11, "name": "Warm White"},
+            {"id": 12, "name": "Daylight"},
+            {"id": 13, "name": "Cool white"},
+            {"id": 14, "name": "Night light"},
+            {"id": 15, "name": "Focus"},
+            {"id": 16, "name": "Relax"},
+            {"id": 17, "name": "True colors"},
+            {"id": 18, "name": "TV time"},
+            {"id": 19, "name": "Plant growth"},
+            {"id": 20, "name": "Spring"},
+            {"id": 21, "name": "Summer"},
+            {"id": 22, "name": "Fall"},
+            {"id": 23, "name": "Deep dive"},
+            {"id": 24, "name": "Jungle"},
+            {"id": 25, "name": "Mojito"},
+            {"id": 26, "name": "Club"},
+            {"id": 27, "name": "Christmas"},
+            {"id": 28, "name": "Halloween"},
+            {"id": 29, "name": "Candlelight"},
+            {"id": 30, "name": "Golden white"},
+            {"id": 31, "name": "Pulse"},
+            {"id": 32, "name": "Steampunk"}
+        ]
+        return {"success": True, "scenes": scenes}
+
+async def main():
     parser = argparse.ArgumentParser(description='WiZ Bulb Controller')
     parser.add_argument('command', help='Command to execute')
     parser.add_argument('args', nargs='*', help='Command arguments')
@@ -241,12 +266,12 @@ def main():
     
     try:
         if args.command == "discover":
-            result = controller.discover_bulbs()
+            result = await controller.discover_bulbs()
             
         elif args.command == "discoverAndGetState":
-            discover_result = controller.discover_bulbs()
+            discover_result = await controller.discover_bulbs()
             if discover_result["success"]:
-                state_result = controller.get_state()
+                state_result = await controller.get_state()
                 result = {
                     "success": True,
                     "discovery": discover_result,
@@ -256,32 +281,53 @@ def main():
                 result = discover_result
                 
         elif args.command == "getState":
-            result = controller.get_state()
+            result = await controller.get_state()
             
         elif args.command == "setBrightness":
             if len(args.args) < 1:
                 result = {"success": False, "message": "Brightness value required"}
             else:
-                result = controller.set_brightness(args.args[0])
+                result = await controller.set_brightness(args.args[0])
                 
         elif args.command == "setRGB":
             if len(args.args) < 3:
                 result = {"success": False, "message": "Red, green, blue values required"}
             else:
-                result = controller.set_rgb(args.args[0], args.args[1], args.args[2])
+                result = await controller.set_rgb(args.args[0], args.args[1], args.args[2])
+                
+        elif args.command == "setWarmWhite":
+            if len(args.args) < 2:
+                result = {"success": False, "message": "Brightness and temperature values required"}
+            else:
+                result = await controller.set_warm_white(args.args[0], args.args[1])
+                
+        elif args.command == "setColorTemp":
+            if len(args.args) < 1:
+                result = {"success": False, "message": "Temperature value required"}
+            else:
+                result = await controller.set_color_temp(args.args[0])
+                
+        elif args.command == "setScene":
+            if len(args.args) < 1:
+                result = {"success": False, "message": "Scene ID required"}
+            else:
+                result = await controller.set_scene(args.args[0])
+                
+        elif args.command == "setSceneWithSpeed":
+            if len(args.args) < 2:
+                result = {"success": False, "message": "Scene ID and speed required"}
+            else:
+                result = await controller.set_scene_with_speed(args.args[0], args.args[1])
                 
         elif args.command == "setPower":
             if len(args.args) < 1:
                 result = {"success": False, "message": "Power state required"}
             else:
                 power = args.args[0].lower() in ('true', '1', 'on', 'yes')
-                result = controller.set_power(power)
+                result = await controller.set_power(power)
                 
-        elif args.command == "setTemp":
-            if len(args.args) < 1:
-                result = {"success": False, "message": "Temperature value required"}
-            else:
-                result = controller.set_temperature(args.args[0])
+        elif args.command == "getScenes":
+            result = await controller.get_scenes()
                 
         else:
             result = {"success": False, "message": f"Unknown command: {args.command}"}
@@ -292,4 +338,4 @@ def main():
         print(json.dumps({"success": False, "message": str(e)}))
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
