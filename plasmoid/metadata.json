@@ -3,11 +3,10 @@
     "KPlugin": {
         "Authors": [
             {
-                "Name": "WiZ Control Plasmoid Developer",
-                "Email": "developer@example.com"
+                "Name": "Flourek"
             }
         ],
-        "BugReportUrl": "https://github.com/kde/plasma-workspace/issues",
+        "BugReportUrl": "https://github.com/Flourek/wiz-bulb-plasmoid/issues",
         "Category": "Utilities",
         "Description": "Complete WiZ Smart Bulb Control - RGB colors, brightness, warm white temperature, scene selection with speed control, and power management. Self-contained with bundled Python backend for fast, reliable bulb communication.",
         "EnabledByDefault": true,
@@ -16,7 +15,7 @@
             "panel"
         ],
         "Icon": "im-jabber",
-        "Id": "org.kde.plasma.wizcontrol",
+        "Id": "flourek.wizbulb.control",
         "License": "GPL-2.0+",
         "Name": "WiZ Smart Bulb Control",
         "Version": "1.0.0",
@@ -26,6 +25,6 @@
     "X-Plasma-API-Minimum-Version": "6.0",
     "X-Plasma-NotificationAreaCategory": "Hardware",
     "X-Plasma-Provides": [
-        "org.kde.plasma.wizcontrol"
+        "flourek.wizbulb.control"
     ]
 }
