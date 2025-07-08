@@ -6,7 +6,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WIDGET_ID="org.kde.plasma.wizcontrol"
+WIDGET_ID="flourek.wizbulb.control"
 INSTALL_DIR="$HOME/.local/share/plasma/plasmoids/$WIDGET_ID"
 
 echo "Installing WiZ Smart Bulb Control widget..."
