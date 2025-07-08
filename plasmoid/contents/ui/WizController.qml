@@ -194,14 +194,16 @@ Item {
         }, "getState");
     }
 
-    // Set bulb brightness (10-100)
+    // Set bulb brightness (0-100)
     function setBrightness(brightness) {
+        console.log("[WizControl] setBrightness function called with:", brightness);
+        
         if (!isConnected) {
             errorOccurred("No bulb connected");
             return;
         }
 
-        brightness = Math.max(10, Math.min(100, brightness));
+        brightness = Math.min(100, brightness);
         console.log("[WizControl] Setting brightness to:", brightness);
         
         // Throttle the actual command execution
@@ -335,14 +337,14 @@ Item {
         }, "setColorTemp");
     }
 
-    // Set warm white (brightness 10-100, temp 2200-6500K) - throttled
+    // Set warm white (brightness 0-100, temp 2200-6500K) - throttled
     function setWarmWhite(brightness, temperature) {
         if (!isConnected) {
             errorOccurred("No bulb connected");
             return;
         }
 
-        brightness = Math.max(10, Math.min(100, brightness));
+        brightness = Math.min(100, brightness);
         temperature = Math.max(2200, Math.min(6500, temperature));
 
         // Store the latest values and restart the timer

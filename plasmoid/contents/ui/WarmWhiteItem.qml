@@ -42,15 +42,14 @@ ColumnLayout {
         PlasmaComponents3.Slider {
             id: warmBrightnessSlider
             Layout.fillWidth: true
-            from: 10
+            from: 0
             to: 100
             value: 50
             enabled: warmWhiteItem.enabled
             
             onMoved: {
                 if (enabled) {
-                    wizBridge.setWarmWhite(Math.round(value), Math.round(warmTempSlider.value));
-                    warmWhiteChanged(Math.round(value), Math.round(warmTempSlider.value));
+                    wizBridge.setBrightness(Math.round(value));
                 }
             }
         }

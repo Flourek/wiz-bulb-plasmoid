@@ -131,9 +131,13 @@ class WizController:
             if not await self.ensure_connected():
                 return {"success": False, "message": "No bulb found"}
             
-            brightness = max(10, min(100, int(brightness)))
-            await self.light.turn_on(PilotBuilder(brightness=brightness))
-            return {"success": True, "response": {"result": {"success": True}}}
+            brightness = min(100, int(brightness))
+            # Use direct protocol command like the old controller for correct values
+            result = await self.send_command({
+                "method": "setPilot",
+                "params": {"dimming": brightness}
+            })
+            return result
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -147,8 +151,12 @@ class WizController:
             green = max(0, min(255, int(green)))
             blue = max(0, min(255, int(blue)))
             
-            await self.light.turn_on(PilotBuilder(rgb=(red, green, blue)))
-            return {"success": True, "response": {"result": {"success": True}}}
+            # Use direct protocol command like the old controller for correct values
+            result = await self.send_command({
+                "method": "setPilot",
+                "params": {"r": red, "g": green, "b": blue}
+            })
+            return result
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -158,11 +166,15 @@ class WizController:
             if not await self.ensure_connected():
                 return {"success": False, "message": "No bulb found"}
             
-            brightness = max(10, min(100, int(brightness)))
+            brightness = min(100, int(brightness))
             temp = max(2200, min(6500, int(temp)))
             
-            await self.light.turn_on(PilotBuilder(brightness=brightness, colortemp=temp))
-            return {"success": True, "response": {"result": {"success": True}}}
+            # Use direct protocol command like the old controller for correct values
+            result = await self.send_command({
+                "method": "setPilot",
+                "params": {"dimming": brightness, "temp": temp}
+            })
+            return result
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -173,8 +185,12 @@ class WizController:
                 return {"success": False, "message": "No bulb found"}
             
             temp = max(2200, min(6500, int(temp)))
-            await self.light.turn_on(PilotBuilder(colortemp=temp))
-            return {"success": True, "response": {"result": {"success": True}}}
+            # Use direct protocol command like the old controller for correct values
+            result = await self.send_command({
+                "method": "setPilot",
+                "params": {"temp": temp}
+            })
+            return result
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -256,6 +272,50 @@ class WizController:
         ]
         return {"success": True, "scenes": scenes}
 
+    async def send_command(self, command):
+        """Send a command directly to the bulb using UDP (like the old controller)"""
+        if not self.bulb_ip:
+            # Try to discover if not connected
+            discover_result = await self.discover_bulbs()
+            if not discover_result["success"]:
+                return {"success": False, "message": "No bulb found"}
+        
+        # Try to send command with current IP
+        result = await self._send_command_direct(command)
+        
+        # If command failed, try rediscovering once
+        if not result["success"] and "timeout" in result["message"].lower():
+            self._clear_cache()
+            discover_result = await self.discover_bulbs()
+            if discover_result["success"]:
+                result = await self._send_command_direct(command)
+        
+        return result
+    
+    async def _send_command_direct(self, command):
+        """Send command directly to bulb without discovery fallback"""
+        if not self.bulb_ip:
+            return {"success": False, "message": "No bulb IP available"}
+        
+        import socket
+        import json
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(5.0)
+        
+        try:
+            message = json.dumps(command).encode()
+            sock.sendto(message, (self.bulb_ip, 38899))
+            
+            data, addr = sock.recvfrom(1024)
+            response = json.loads(data.decode())
+            return {"success": True, "response": response}
+            
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+        finally:
+            sock.close()
+
 async def main():
     parser = argparse.ArgumentParser(description='WiZ Bulb Controller')
     parser.add_argument('command', help='Command to execute')
@@ -335,6 +395,16 @@ async def main():
             controller.bulb_ip = None
             controller.light = None
             result = {"success": True, "message": "Cache cleared successfully"}
+            
+        elif args.command == "sendRawCommand":
+            if len(args.args) < 1:
+                result = {"success": False, "message": "JSON command required"}
+            else:
+                try:
+                    command_json = json.loads(args.args[0])
+                    result = await controller.send_command(command_json)
+                except json.JSONDecodeError:
+                    result = {"success": False, "message": "Invalid JSON command"}
                 
         else:
             result = {"success": False, "message": f"Unknown command: {args.command}"}

@@ -132,8 +132,8 @@ class WizController:
         return result
     
     def set_brightness(self, brightness):
-        """Set bulb brightness (10-100)"""
-        brightness = max(10, min(100, int(brightness)))
+        """Set bulb brightness (0-100)"""
+        brightness = min(100, int(brightness))
         result = self.send_command({
             "method": "setPilot",
             "params": {"dimming": brightness}
